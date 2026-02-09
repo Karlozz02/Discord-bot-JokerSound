@@ -1,15 +1,19 @@
-const { getVoiceConnection } = require('@discordjs/voice');
+const { SlashCommandBuilder } = require('discord.js');
+const { skip } = require('../musicManager');
 
 module.exports = {
-  name: 'skip',
-  async execute(interaction) {
-    const connection = getVoiceConnection(interaction.guild.id);
+  data: new SlashCommandBuilder()
+    .setName('skip')
+    .setDescription('Salta la canción actual'),
 
-    if (!connection) {
-      return interaction.reply('❌ No hay canción para saltar');
+  async execute(interaction) {
+    const skipped = skip(interaction.guild.id);
+
+    if (!skipped) {
+      await interaction.reply('❌ No hay ninguna canción sonando para saltar.');
+      return;
     }
 
-    connection.destroy();
-    interaction.reply('⏭️ Canción saltada');
-  }
+    await interaction.reply('⏭️ Canción saltada.');
+  },
 };
