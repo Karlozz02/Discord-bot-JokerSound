@@ -1,44 +1,43 @@
-const { joinVoiceChannel, createAudioPlayer, createAudioResource } = require('@discordjs/voice');
-const play = require('play-dl');
+const { SlashCommandBuilder } = require('discord.js');
+const { enqueue } = require('../musicManager');
 
 module.exports = {
-  name: 'play',
-  async execute(interaction) {
-    const query = interaction.options.getString('query');
-    const channel = interaction.member.voice.channel;
+  data: new SlashCommandBuilder()
+    .setName('play')
+    .setDescription('Reproduce música o la agrega a la cola')
+    .addStringOption(option =>
+      option
+        .setName('query')
+        .setDescription('Nombre o URL de YouTube')
+        .setRequired(true),
+    ),
 
-    if (!channel) {
-      return interaction.reply('❌ Debes estar en un canal de voz');
-    }
+  async execute(interaction) {
+    const query = interaction.options.getString('query', true);
 
     await interaction.deferReply();
 
-    let url = query;
+    try {
+      const result = await enqueue(interaction, query);
 
-    // Si NO es URL, buscar en YouTube
-    if (!play.yt_validate(query)) {
-      const results = await play.search(query, { limit: 1 });
-      if (!results.length) {
-        return interaction.editReply('❌ No encontré resultados');
+      if (result.type === 'NOT_FOUND') {
+        await interaction.editReply('❌ No encontré resultados para esa búsqueda.');
+        return;
       }
-      url = results[0].url;
+
+      if (result.type === 'PLAYING') {
+        await interaction.editReply(`🎶 Reproduciendo ahora: **${result.track.title}**`);
+        return;
+      }
+
+      await interaction.editReply(`➕ Agregada a la cola: **${result.track.title}**`);
+    } catch (error) {
+      if (error.message === 'NO_VOICE_CHANNEL') {
+        await interaction.editReply('❌ Debes estar en un canal de voz para usar `/play`.');
+        return;
+      }
+
+      throw error;
     }
-
-    const stream = await play.stream(url);
-    const resource = createAudioResource(stream.stream, {
-      inputType: stream.type
-    });
-
-    const player = createAudioPlayer();
-    const connection = joinVoiceChannel({
-      channelId: channel.id,
-      guildId: interaction.guild.id,
-      adapterCreator: interaction.guild.voiceAdapterCreator
-    });
-
-    connection.subscribe(player);
-    player.play(resource);
-
-    interaction.editReply(`🎶 Reproduciendo: **${url}**`);
-  }
+  },
 };

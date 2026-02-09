@@ -1,15 +1,19 @@
-const { getVoiceConnection } = require('@discordjs/voice');
+const { SlashCommandBuilder } = require('discord.js');
+const { stop } = require('../musicManager');
 
 module.exports = {
-  name: 'stop',
-  async execute(interaction) {
-    const connection = getVoiceConnection(interaction.guild.id);
+  data: new SlashCommandBuilder()
+    .setName('stop')
+    .setDescription('Detiene la música y limpia la cola'),
 
-    if (!connection) {
-      return interaction.reply('❌ No estoy reproduciendo nada');
+  async execute(interaction) {
+    const stopped = stop(interaction.guild.id);
+
+    if (!stopped) {
+      await interaction.reply('❌ No estoy reproduciendo música ahora mismo.');
+      return;
     }
 
-    connection.destroy();
-    interaction.reply('⏹️ Música detenida');
-  }
+    await interaction.reply('⏹️ Reproducción detenida y cola limpiada.');
+  },
 };
